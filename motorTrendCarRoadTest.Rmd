@@ -1,0 +1,298 @@
+---
+title: "MTCRT DataSet Analysis"
+date: "12/06"
+author: "[Chenjia Li]"
+output: html_notebook
+---
+
+## Import the dataset and other packages
+```{r}
+#rm(list = ls())
+
+#packages
+library(bayesrules)
+library(randomForest)
+library(rpart)
+library(tree)
+library(pROC)
+library(mgcv)
+library(ISLR)
+library(dplyr)
+library(tidyverse)
+library(faraway)
+library(olsrr)
+library(caret)
+
+
+#Data Set
+data1 <- mtcars
+summary(data1)
+head(data1)
+```
+
+
+
+<br>
+<br>
+
+
+## 1. OLS
+
+#### a) Visualize the data using Pairs to see if there is any collinearity
+```{r}
+pairs(data1)
+
+# Conclusion
+# Some of the predictors are linearly depedent based on the graph. (ex. mpg~drat, hp~wt)
+
+cor(data1)
+```
+
+#### b) Build Model
+```{r}
+#Full Model
+mr_model <- lm(mpg ~ cyl + disp + hp + drat + wt + qsec + vs + am + gear + carb, data1)
+summary(mr_model)
+
+# Conclusion From the summary
+# 1. Based on the t test, none of them are significant, which is potentially meaning that The Full Model is a bad choice for predicting mpg.
+vif(mr_model)
+# 2. Some of them has multicollinearity issures
+```
+
+```{r}
+plot(mr_model)
+```
+#### c)Use Added variable plot to visualize it
+```{r}
+ols_plot_added_variable(mr_model)
+```
+
+#### d) ols regression Output
+```{r}
+(ols_regress(mpg ~ cyl + disp + hp + drat + wt + qsec + vs + am + gear + carb, data1))
+```
+
+#### d) Model Diagnostics Plot
+Conclusion: 
+1. The QQ Plots show that the Full Model residuals are Normally Distributed. 
+2. There are 4 out of 32 outliers based on cooks D, which is kind of high proportion.
+
+```{r}
+#Generate QQ Plot
+qqnorm(residuals(mr_model),ylab="Residuals",main="Q-Q plot")
+qqline(residuals(mr_model))
+
+#Cook's D
+ols_plot_cooksd_bar(mr_model)
+ols_plot_cooksd_chart(mr_model)
+
+#dfbetas panel
+ols_plot_dfbetas(mr_model)
+
+#dffits plot
+ols_plot_dffits(mr_model)
+
+#Studentized residuals
+ols_plot_resid_stud(mr_model)
+
+#Standardized residuals
+ols_plot_resid_stand(mr_model)
+
+#Studentized Residuals vs Leverage Plot
+ols_plot_resid_lev(mr_model)
+
+#Deleted Studentized Residual vs Fitted Values Plot
+ols_plot_resid_stud_fit(mr_model)
+
+#Hadi Plot
+ols_plot_hadi(mr_model)
+
+#Potential Residual Plot
+ols_plot_resid_pot(mr_model)
+```
+
+<br>
+<br>
+
+## 2. Backward Elimination
+Conclusion: Backward Elimination gives that the model mpg ~ disp + hp + wt + qsec + am is the best subset model.
+
+```{r}
+backward.reg <- ols_step_backward_p(mr_model,details=TRUE)
+```
+
+
+
+<br>
+<br>
+
+## 3. Forward Elimination
+Conclusion: Backward Elimination gives that the model mpg ~ wt + cyl + hp is the best subset model.
+```{r}
+forward.reg <- ols_step_forward_p(mr_model,details=TRUE)
+```
+
+<br>
+<br>
+## 4. Forward Elimination
+Conclusion: Backward Elimination gives that the model mpg ~ wt + cyl + hp is the best subset model.
+```{r}
+forward.reg <- ols_step_both_p(mr_model,details=TRUE)
+```
+
+
+
+## 3 model 
+#### a) Forward
+```{r}
+f_model <- lm(mpg ~ wt + cyl + hp, data1)
+summary(f_model)
+```
+
+#### b) Backward
+```{r}
+#backward model
+b_model <- lm(mpg ~ disp + hp + wt + qsec + am, data1)
+summary(b_model)
+```
+#### c) Bidirectional
+Conclusion: Stepwise Elimination gives that the model mpg ~ wt + cyl is the best subset model.
+```{r}
+#backward model
+bi_model <- lm(mpg ~ wt + cyl, data1)
+summary(bi_model)
+```
+
+<br>
+<br>
+
+
+## 5. All possible & Best Subset Regression
+#### a) All Possible
+```{r}
+all_p <- ols_step_all_possible(mr_model)
+all_p
+plot(all_p)
+```
+
+#### b) Best Subset
+```{r}
+b.subset <- ols_step_best_subset(mr_model)
+b.subset
+plot(b.subset)
+```
+#### c) Analysis on All possible Regression
+Conclusion: The Model Selection Criteria based on All Possible Regression gives that mpg~wt+qsec+am is the best model for mtcars
+```{r}
+all_p$predictors[all_p$rsquare == max(all_p$rsquare)]
+all_p$predictors[all_p$adjr == max(all_p$adjr)]
+all_p$predictors[all_p$cp == min(all_p$cp)]
+all_p$predictors[all_p$aic == min(all_p$aic)]
+all_p$predictors[all_p$sbic == min(all_p$sbic)]
+all_p$predictors[all_p$sbc == min(all_p$sbc)]
+```
+#### c) Analysis on Best Subset Regression
+Conclusion: The Model Selection Criteria based on All Best Subset Regression gives that mpg~wt+qsec+am is the best model for mtcars
+```{r}
+b.subset$predictors[b.subset$rsquare == max(b.subset$rsquare)]
+b.subset$predictors[b.subset$adjr == max(b.subset$adjr)]
+b.subset$predictors[b.subset$cp == min(b.subset$cp)]
+b.subset$predictors[b.subset$aic == min(b.subset$aic)]
+b.subset$predictors[b.subset$sbic == min(b.subset$sbic)]
+b.subset$predictors[b.subset$sbc == min(b.subset$sbc)]
+```
+
+
+<br>
+<br>
+
+## 6. Cross validation
+Current we have the options:
+1. wt + qsec + am
+2. wt + cyl
+3. disp + hp + wt + qsec + am
+4. wt + cyl + hp
+
+#### a) Create trainControl
+```{r}
+train.control1 <- trainControl(method = "cv", number = 5)
+train.control2 <- trainControl(method = "repeatedcv", number = 5, repeats = 100)
+```
+
+
+#### b) One time Cross Validation
+Conclusion: It is still not explicit to say which model should be chose.
+```{r}
+#How about n-1 fold?
+option1 <- train(mpg ~ wt + qsec + am, data = data1, method = "lm", trControl = train.control1)
+option2 <- train(mpg ~ wt + cyl, data = data1, method = "lm", trControl = train.control1)
+option3 <- train(mpg ~ disp + hp + wt + qsec + am, data = data1, method = "lm", trControl = train.control1)
+option4 <- train(mpg ~ wt + cyl + hp, data = data1, method = "lm", trControl = train.control1)
+print(option1)
+print(option2)
+print(option3)
+print(option4)
+```
+
+```{r}
+tot <- 1
+count <- data.frame(rmse_count = c(0,0,0,0), rsq_count = c(0,0,0,0), mae_count = c(0,0,0,0), total_num = c(tot,tot,tot,tot))
+rmse_step <- data.frame(ind = c(1,2,3,4), rmse = c(option1$results$RMSE,option2$results$RMSE,option3$results$RMSE,option4$results$RMSE))
+ind_max1 <- rmse_step$ind[rmse_step$rmse == min(rmse_step$rmse)]
+count$rmse_count[ind_max1] <- count$rmse_count[ind_max1] + 1
+  
+rsq_step <- data.frame(ind = c(1,2,3,4), rsq = c(option1$results$Rsquared,option2$results$Rsquared,option3$results$Rsquared,option4$results$Rsquared))
+ind_max2 <- rsq_step$ind[rsq_step$rsq == max(rsq_step$rsq)]
+count$rsq_count[ind_max2] <- count$rsq_count[ind_max2] + 1
+  
+mae_step <- data.frame(ind = c(1,2,3,4), mae = c(option1$results$MAE,option2$results$MAE,option3$results$MAE,option4$results$MAE))
+ind_max3 <- mae_step$ind[mae_step$mae == min(mae_step$mae)]
+count$mae_count[ind_max3] <- count$mae_count[ind_max3] + 1
+count
+```
+
+
+
+#### c) Repeated Cross Validation
+Conclusion: We have to choose 4th Model.
+```{r}
+#How about n-1 fold?
+option1 <- train(mpg ~ wt + qsec + am, data = data1, method = "lm", trControl = train.control2)
+option2 <- train(mpg ~ wt + cyl, data = data1, method = "lm", trControl = train.control2)
+option3 <- train(mpg ~ disp + hp + wt + qsec + am, data = data1, method = "lm", trControl = train.control2)
+option4 <- train(mpg ~ wt + cyl + hp, data = data1, method = "lm", trControl = train.control2)
+print(option1)
+print(option2)
+print(option3)
+print(option4)
+```
+
+```{r}
+tot <- 1
+count <- data.frame(rmse_count = c(0,0,0,0), rsq_count = c(0,0,0,0), mae_count = c(0,0,0,0), total_num = c(tot,tot,tot,tot))
+rmse_step <- data.frame(ind = c(1,2,3,4), rmse = c(option1$results$RMSE,option2$results$RMSE,option3$results$RMSE,option4$results$RMSE))
+ind_max1 <- rmse_step$ind[rmse_step$rmse == min(rmse_step$rmse)]
+count$rmse_count[ind_max1] <- count$rmse_count[ind_max1] + 1
+  
+rsq_step <- data.frame(ind = c(1,2,3,4), rsq = c(option1$results$Rsquared,option2$results$Rsquared,option3$results$Rsquared,option4$results$Rsquared))
+ind_max2 <- rsq_step$ind[rsq_step$rsq == max(rsq_step$rsq)]
+count$rsq_count[ind_max2] <- count$rsq_count[ind_max2] + 1
+  
+mae_step <- data.frame(ind = c(1,2,3,4), mae = c(option1$results$MAE,option2$results$MAE,option3$results$MAE,option4$results$MAE))
+ind_max3 <- mae_step$ind[mae_step$mae == min(mae_step$mae)]
+count$mae_count[ind_max3] <- count$mae_count[ind_max3] + 1
+count
+```
+
+
+
+
+<br>
+<br>
+<br>
+<br>
+
+
+
+
