@@ -1,6 +1,6 @@
 # Motor Trend Car Road Test Analysis in R
 
-This project presents an in-depth analysis of the Motor Trend Car Road Test dataset using R. In this analysis, Ordinary Least Squares (OLS) regression is employed to model the relationship between miles per gallon (mpg) and several predictors. The study evaluates the validity of the OLS assumptions, examines the statistical significance of each variable's contribution, applies backward elimination for variable selection, and uses cross validation to assess model robustness across multiple metrics (including R², AIC, SBIC, etc.) (&#8203;:contentReference[oaicite:0]{index=0}).
+This project presents an in-depth analysis of the Motor Trend Car Road Test dataset using R. In this analysis, Ordinary Least Squares (OLS) regression is employed to model the relationship between miles per gallon (mpg) and several predictors. The study evaluates the validity of the OLS assumptions, examines the statistical significance of each variable's contribution, applies backward elimination for variable selection, and uses cross validation to assess model robustness across multiple metrics (including R², AIC, SBIC, etc.).
 
 ---
 
